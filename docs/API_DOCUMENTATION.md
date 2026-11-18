@@ -59,5 +59,18 @@ CropWise AI provides REST APIs powering IoT ingestion, historical database queri
 
 ---
 
+## 🌾 4. Computer Vision Crop Disease Detection Endpoints
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/rice-disease/health` | Check ONNX model readiness status, uptime, and latency benchmarks. |
+| `GET` | `/api/v1/rice-disease/model-info` | Retrieve 10-class metadata (English & Bengali), input shape, and validation metrics. |
+| `POST` | `/api/v1/rice-disease/predict` | Multipart upload (`image`) returning diagnosis, 10-class probabilities, and agronomic action plan. |
+| `GET` | `/api/v1/rice-disease/history` | Paginated diagnosis scan history for authenticated users. |
+| `GET` | `/api/v1/rice-disease/history/:id` | Fetch specific disease diagnosis record by ID. |
+| `DELETE` | `/api/v1/rice-disease/history/:id` | Delete diagnosis record from PostgreSQL storage. |
+
+---
+
 [← Back to Main README](../README.md) • [Next: Key Features & Decision Support →](DECISION_SUPPORT_AND_FEATURES.md)
 

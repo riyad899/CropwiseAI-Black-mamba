@@ -34,6 +34,7 @@ To keep documentation clean, modular, and easy to navigate, detailed architectur
 | **🔌 IoT Device & Hardware** | ESP32 wiring, GPIO pinout table, sensor specs, and telemetry format | [View Hardware Specs →](docs/IOT_HARDWARE.md) |
 | **🔗 API Documentation** | Complete endpoint reference for IoT server and core backend services | [View API Reference →](docs/API_DOCUMENTATION.md) |
 | **✨ Features & Decision Support** | Climate analysis, risk scoring, AI assistant, and crop rotation engine | [View Feature Guide →](docs/DECISION_SUPPORT_AND_FEATURES.md) |
+| **🌾 AI Crop Disease Detection** | EfficientNet-B0 computer vision model (95.05% acc), ONNX runtime & treatments | [View Disease Detection →](docs/CROP_DISEASE_DETECTION.md) |
 | **🔬 Workflow & Limitations** | 7-step processing pipeline, scientific limitations, and future roadmap | [View Workflow →](docs/WORKFLOW_AND_LIMITATIONS.md) |
 | **🖥️ Demo Screenshot Gallery** | Visual overview of all platform screens and dashboards | [View Demo Gallery →](docs/DEMO_GALLERY.md) |
 
@@ -62,6 +63,7 @@ To make advanced Earth observation, environmental analytics, and artificial inte
 | **Soil Degradation & Water Imbalance** | ISRIC SoilGrids texture analysis + MODIS Water Deficit Index ($WDI = 1 - ET/PET$). |
 | **Disconnected Information Silos** | **Data Fusion Engine** synchronizing satellite passes with local ESP32 telemetry. |
 | **Complex Scientific Data** | **RAG-powered AI Assistant** translating statistical models into plain-language advice. |
+| **Plant Diseases & Yield Losses** | **Computer Vision Disease Engine** diagnosing 10 rice diseases (95.05% accuracy) with tailored treatments. |
 
 ---
 
@@ -136,6 +138,7 @@ Run individual packages directly from the root workspace:
 | **Backend** | Express 5, Node.js, TypeScript, Prisma ORM, Neon PostgreSQL |
 | **IoT & Hardware** | ESP32, DHT11, Capacitive Soil Probe, Analog Rain Sensor, NEO-6M GPS, C++/Arduino |
 | **Data Science & AI** | Python (NumPy, Pandas, SciPy, Scikit-learn), OLS Regression, PCA, K-Means, RAG |
+| **Computer Vision (ML)** | EfficientNet-B0 (PyTorch & ONNX Runtime Node.js), Sharp (Image Preprocessing), 10-Class Disease Classifier |
 | **Earth Observation** | NASA POWER, GPM IMERG, SMAP, MODIS, Landsat 8/9, ECOSTRESS, SoilGrids, NASADEM |
 
 ---

@@ -37,6 +37,14 @@ Identifies composite hazards by synthesizing environmental indicators:
 - **Multi-Season Planning:** Recommends optimal sowing windows for Aus, Aman, Boro rice, pulses, and winter vegetables.
 - **Actionable Decision Guides:** Outlines exact seedbed preparations, irrigation timing, and fertilizer schedules based on real-time field status.
 
+### 6. 🌿 Computer Vision Rice Leaf Disease Diagnosis
+- **Deep Convolutional Neural Network (EfficientNet-B0):** Real-time image-based pathogen classification trained on 10 major rice diseases with **95.05% validation accuracy** and **94.56% Macro F1**.
+- **Native ONNX Runtime Inference:** In-process CPU inference engine running within Express.js + Node.js (sub-25ms latency, no Python server required).
+- **Dual Capture Methods:** Supports instant live camera capture (via WebRTC/getUserMedia with rear/selfie switching) or photo upload (JPG/PNG/WebP).
+- **Multi-Tiered Agronomic Advisory:** Generates structured action plans across **Cultural Management**, **Chemical Controls (with dosages)**, and **Organic Bio-Control Remedies**.
+- **Speech Synthesis (TTS) & AI Integration:** Reads diagnoses aloud in English or Bengali, with 1-click handoff to the conversational AI Assistant.
+- [Detailed Disease Detection Technical Guide →](CROP_DISEASE_DETECTION.md)
+
 ---
 
 [← Back to Main README](../README.md) • [Next: Workflow & Limitations →](WORKFLOW_AND_LIMITATIONS.md)

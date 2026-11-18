@@ -66,8 +66,20 @@ export const authApi = {
   },
 
   getGoogleLoginUrl: (redirectPath = "/dashboard") => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5007";
-    const cleanBaseUrl = baseUrl.replace(/\/$/, "");
-    return `${cleanBaseUrl}/api/v1/auth/login/google?redirect=${encodeURIComponent(redirectPath)}`;
+    const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || "https://cropwise-serve.onrender.com";
+    const cleanBaseUrl = rawBaseUrl.trim().replace(/\/+$/, "").replace(/\/api\/v1\/?$/i, "");
+    const fullUrl = `${cleanBaseUrl}/api/v1/auth/login/google?redirect=${encodeURIComponent(redirectPath)}`;
+    
+    // Detailed client console logging
+    if (typeof window !== "undefined") {
+      console.group("[CropWise Auth] 🔑 Google OAuth URL Generation");
+      console.log("Raw NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+      console.log("Cleaned Base URL:", cleanBaseUrl);
+      console.log("Target Redirect Path:", redirectPath);
+      console.log("Generated Google OAuth URL:", fullUrl);
+      console.groupEnd();
+    }
+    
+    return fullUrl;
   },
 };

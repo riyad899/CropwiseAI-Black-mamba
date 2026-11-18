@@ -208,7 +208,12 @@ const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
 
   const isValidRedirectPath = redirectPath.startsWith("/") && !redirectPath.startsWith("//");
   const finalRedirectPath = isValidRedirectPath ? redirectPath : "/dashboard";
-  res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+  const separator = finalRedirectPath.includes("?") ? "&" : "?";
+  res.redirect(
+    `${envVars.FRONTEND_URL}${finalRedirectPath}${separator}accessToken=${encodeURIComponent(
+      accessToken
+    )}&refreshToken=${encodeURIComponent(refreshToken)}`
+  );
 });
 
 const handleOAuthError = catchAsync((req: Request, res: Response) => {

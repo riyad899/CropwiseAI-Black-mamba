@@ -24,6 +24,23 @@ export default function SignInPage() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("error");
+      if (oauthError) {
+        console.error("[SignInPage] ❌ Google OAuth Error detected in URL:", oauthError);
+        const descriptions: Record<string, string> = {
+          oauth_failed: "Google Sign-In failed on the backend. Please check Google Cloud Console Redirect URIs and Render BETTER_AUTH_URL.",
+          no_session_found: "Could not establish an active session after Google authentication.",
+          no_user_found: "Google account profile could not be retrieved.",
+          access_denied: "Google sign-in was cancelled.",
+        };
+        setFormError(descriptions[oauthError] || `Google Sign-In Error: ${oauthError}`);
+      }
+    }
+  }, []);
+
   const validate = (): boolean => {
     const next: FormErrors = {};
     if (!email.trim()) next.email = "Email is required.";

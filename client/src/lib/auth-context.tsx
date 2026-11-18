@@ -61,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCurrentUser = useCallback(async () => {
     try {
+      console.log("[CropWise Auth] 🔄 Step 5: Checking user session with backend (/auth/me)...");
       const res = await authApi.getMe();
       if (res?.data) {
         const u = res.data;
@@ -72,33 +73,86 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           image: u.image,
           status: u.status,
         };
+        console.log("[CropWise Auth] 🎉 Step 6: User successfully authenticated via backend:", normalized);
         setUser(normalized);
         saveSession(undefined, undefined, normalized);
+      } else {
+        console.warn("[CropWise Auth] ⚠️ /auth/me returned no data payload. User remains unauthenticated.");
       }
-    } catch {
+    } catch (err: any) {
+      console.warn("[CropWise Auth] ℹ️ /auth/me session check failed or user not signed in:", {
+        status: err?.status,
+        message: err?.message,
+      });
       // If unauthorized and no stored user, ensure user is null
     }
   }, []);
 
   useEffect(() => {
-    // 1. Eagerly read cached user from localStorage to prevent UI flicker
     if (typeof window !== "undefined") {
+      console.group("[CropWise Auth] 🔍 Step 4: AuthProvider Initializing");
+      console.log("Current Window URL:", window.location.href);
+      console.log("Current Pathname:", window.location.pathname);
+      console.log("Current Search Params:", window.location.search);
+
+      // Check URL for OAuth callback parameters (errors or tokens from Render)
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const error = params.get("error");
+        const urlAccessToken = params.get("accessToken");
+        const urlRefreshToken = params.get("refreshToken");
+
+        if (error) {
+          console.error("[CropWise Auth] ❌ OAuth Error detected in URL query parameters:", {
+            error,
+            possibleCause:
+              error === "oauth_failed"
+                ? "Backend did not receive OAuth state/session from Google. Check Google Cloud Console Redirect URIs."
+                : error === "no_session_found"
+                ? "Backend session token expired or could not be found."
+                : error === "access_denied"
+                ? "User cancelled Google login dialog."
+                : "Unknown OAuth error returned from backend.",
+          });
+        }
+
+        if (urlAccessToken) {
+          console.log("[CropWise Auth] 🎁 Found accessToken in URL parameters! Storing session to localStorage...");
+          saveSession(urlAccessToken, urlRefreshToken || undefined);
+
+          // Clean URL parameters without reloading page
+          params.delete("accessToken");
+          params.delete("refreshToken");
+          const remainingQuery = params.toString() ? `?${params.toString()}` : "";
+          const cleanUrl = `${window.location.pathname}${remainingQuery}${window.location.hash}`;
+          window.history.replaceState({}, document.title, cleanUrl);
+          console.log("[CropWise Auth] 🧹 Cleaned URL parameters to protect tokens:", cleanUrl);
+        }
+      } catch (e) {
+        console.error("[CropWise Auth] Error parsing URL search params:", e);
+      }
+
+      // 1. Eagerly read cached user from localStorage to prevent UI flicker
       try {
         const cachedSession = window.localStorage.getItem(AUTH_SESSION_CACHE_KEY);
         if (cachedSession) {
           const parsed = JSON.parse(cachedSession);
           if (parsed?.user) {
+            console.log("[CropWise Auth] 📦 Restored user session from localStorage cache:", parsed.user.email);
             setUser(parsed.user);
           }
         } else {
           const legacy = window.localStorage.getItem(LEGACY_USER_KEY);
           if (legacy) {
-            setUser(JSON.parse(legacy));
+            const parsed = JSON.parse(legacy);
+            console.log("[CropWise Auth] 📦 Restored legacy user cache:", parsed.email);
+            setUser(parsed);
           }
         }
       } catch {
         // ignore
       }
+      console.groupEnd();
     }
 
     // 2. Validate session with the backend
@@ -155,8 +209,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const googleLogin = (redirectPath = "/dashboard") => {
+    console.group("[CropWise Auth] 🚀 Step 1: User Initiated Google Login");
+    console.log("Current Origin:", typeof window !== "undefined" ? window.location.origin : "");
+    console.log("Requested Redirect Destination:", redirectPath);
     const url = authApi.getGoogleLoginUrl(redirectPath);
+    console.log("Final Destination URL for Browser Redirect:", url);
+    console.groupEnd();
+
     if (typeof window !== "undefined") {
+      console.log("[CropWise Auth] ⏩ Step 3: Redirecting window.location to backend...");
       window.location.href = url;
     }
   };

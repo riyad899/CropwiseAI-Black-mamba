@@ -29,6 +29,23 @@ export default function SignUpPage() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const oauthError = params.get("error");
+      if (oauthError) {
+        console.error("[SignUpPage] ❌ Google OAuth Error detected in URL:", oauthError);
+        const descriptions: Record<string, string> = {
+          oauth_failed: "Google Sign-Up failed on the backend. Please check Google Cloud Console Redirect URIs and Render BETTER_AUTH_URL.",
+          no_session_found: "Could not establish an active session after Google authentication.",
+          no_user_found: "Google account profile could not be retrieved.",
+          access_denied: "Google sign-up was cancelled.",
+        };
+        setFormError(descriptions[oauthError] || `Google Sign-Up Error: ${oauthError}`);
+      }
+    }
+  }, []);
+
   const passwordChecks = {
     length: password.length >= 8,
     number: /\d/.test(password),

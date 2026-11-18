@@ -6,11 +6,24 @@ import {
   checkDeviceAuthApi,
   getLatestTelemetryApi,
   getDeviceStatusApi,
+  getRelayStateApi,
   controlRelayApi,
   IConnectedDevice,
   ILatestTelemetry,
   IDeviceStatusResponse,
 } from "@/lib/apis/device.api";
+
+export interface IActivityLogItem {
+  id: string;
+  timestamp: string;
+  relay: string;
+  action: "ON" | "OFF";
+  source: "Manual" | "Timer" | "Automation" | "Voice Assistant";
+  userOrTrigger: string;
+  duration?: string;
+  status: "Success" | "Safety Cutoff" | "Warning";
+  createdAt: string;
+}
 
 interface RelaysState {
   relay1: boolean;
@@ -25,16 +38,20 @@ interface DeviceContextType {
   isConnecting: boolean;
   isLoadingData: boolean;
   isSyncing: boolean;
+  isManualRefreshing: boolean;
   hasSynced: boolean;
   error: string | null;
   device: IConnectedDevice | null;
   telemetry: ILatestTelemetry | null;
   statusInfo: IDeviceStatusResponse | null;
   relays: RelaysState;
+  activityLogs: IActivityLogItem[];
+  addActivityLog: (item: Omit<IActivityLogItem, "id" | "createdAt">) => void;
   connectDevice: (name: string, key: string, deviceId?: string) => Promise<boolean>;
   disconnectDevice: () => void;
   toggleRelay: (relay: 1 | 2, state: boolean) => Promise<boolean>;
-  refreshData: () => Promise<void>;
+  emergencyStop: () => Promise<boolean>;
+  refreshData: (isManual?: boolean) => Promise<void>;
   clearError: () => void;
 }
 
@@ -48,6 +65,7 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState<boolean>(false);
   const [hasSynced, setHasSynced] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,9 +78,35 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     relay2State: "OFF",
   });
 
-  const isSyncing = isLoadingData || (isConnected && !hasSynced);
+  const [activityLogs, setActivityLogs] = useState<IActivityLogItem[]>([]);
 
-  // Load saved connection from localStorage on mount
+  const formatLogTime = (date: Date) => {
+    const isToday = new Date().toDateString() === date.toDateString();
+    const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return isToday ? `Today, ${time}` : `${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+  };
+
+  const addActivityLog = useCallback((item: Omit<IActivityLogItem, "id" | "createdAt">) => {
+    const newLog: IActivityLogItem = {
+      ...item,
+      id: `LOG-${Math.floor(1000 + Math.random() * 9000)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setActivityLogs((prev) => {
+      const updated = [newLog, ...prev.filter((l) => l.id !== newLog.id)].slice(0, 100);
+      try {
+        localStorage.setItem("cropwise_device_activity_logs_v1", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
+
+  // isSyncing only shows visual spinner for explicit manual user refreshes or initial un-synced load
+  const isSyncing = isManualRefreshing || (isConnected && !hasSynced);
+
+  // Load saved connection and activity logs from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -73,42 +117,61 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
           setIsConnected(true);
         }
       }
+      const storedLogs = localStorage.getItem("cropwise_device_activity_logs_v1");
+      if (storedLogs) {
+        const parsedLogs = JSON.parse(storedLogs);
+        if (Array.isArray(parsedLogs)) {
+          setActivityLogs(parsedLogs);
+        }
+      }
     } catch {
       // ignore
     }
   }, []);
 
   // Fetch telemetry & status
-  const refreshData = useCallback(async () => {
+  const refreshData = useCallback(async (isManual = false) => {
     if (!device?.deviceId) return;
     const devId = device.deviceId;
-    setIsLoadingData(true);
+    
+    if (isManual) {
+      setIsManualRefreshing(true);
+    } else {
+      setIsLoadingData(true);
+    }
     const startTime = Date.now();
 
     try {
-      const [telRes, statRes] = await Promise.all([
+      const [telRes, statRes, relayRes] = await Promise.all([
         getLatestTelemetryApi(devId).catch(() => null),
         getDeviceStatusApi(devId).catch(() => null),
+        getRelayStateApi(devId).catch(() => null),
       ]);
 
+      const r1 = relayRes?.relay1 || statRes?.relay1 || "OFF";
+      const r2 = relayRes?.relay2 || statRes?.relay2 || "OFF";
+      const r1On = String(r1).toUpperCase() === "ON";
+      const r2On = String(r2).toUpperCase() === "ON";
+
+      setRelays({
+        relay1: r1On,
+        relay2: r2On,
+        relay1State: r1On ? "ON" : "OFF",
+        relay2State: r2On ? "ON" : "OFF",
+      });
+
       if (statRes) {
-        setStatusInfo(statRes);
-        const online = statRes.status === "online" || statRes.active === true;
-        setIsOnline(online);
-
-        const r1On =
-          statRes.relay1 === true ||
-          String(statRes.relay1).toUpperCase() === "ON";
-        const r2On =
-          statRes.relay2 === true ||
-          String(statRes.relay2).toUpperCase() === "ON";
-
-        setRelays({
-          relay1: r1On,
-          relay2: r2On,
-          relay1State: r1On ? "ON" : "OFF",
-          relay2State: r2On ? "ON" : "OFF",
+        setStatusInfo({
+          ...statRes,
+          relay1: r1On ? "ON" : "OFF",
+          relay2: r2On ? "ON" : "OFF",
         });
+        // Directly apply online status from endpoint (status === "online" or active === true)
+        const online =
+          statRes.status === "online" ||
+          statRes.active === true ||
+          (statRes.secondsSinceLastSeen != null && statRes.secondsSinceLastSeen < 3600);
+        setIsOnline(online);
       }
 
       if (telRes?.data) {
@@ -131,23 +194,28 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     } catch (err: any) {
       console.warn("Device telemetry refresh warning:", err?.message);
     } finally {
-      // Ensure smooth visual transition: at least 650ms to allow "Status Syncing..." indicator to be visible
-      const elapsed = Date.now() - startTime;
-      const minDuration = 650;
-      if (elapsed < minDuration) {
-        await new Promise((r) => setTimeout(r, minDuration - elapsed));
+      if (isManual) {
+        const elapsed = Date.now() - startTime;
+        const minDuration = 500;
+        if (elapsed < minDuration) {
+          await new Promise((r) => setTimeout(r, minDuration - elapsed));
+        }
+        setIsManualRefreshing(false);
       }
       setIsLoadingData(false);
       setHasSynced(true);
     }
   }, [device?.deviceId]);
 
-  // Periodic heartbeat poll every 15 seconds when connected
+  // Periodic heartbeat poll every 4 seconds when connected (silent background, near real-time sync)
   useEffect(() => {
     if (!isConnected || !device?.deviceId) return;
 
-    refreshData();
-    const interval = setInterval(refreshData, 15000);
+    refreshData(false);
+    const interval = setInterval(() => {
+      refreshData(false);
+    }, 4000);
+
     return () => clearInterval(interval);
   }, [isConnected, device?.deviceId, refreshData]);
 
@@ -221,6 +289,18 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
       [relay === 1 ? "relay1State" : "relay2State"]: state ? "ON" : "OFF",
     }));
 
+    // Record manual action in activity log
+    const relayName = relay === 1 ? "Relay 1 (Water Motor)" : "Relay 2 (Solenoid Valve)";
+    const actionStr = state ? "ON" : "OFF";
+    addActivityLog({
+      timestamp: formatLogTime(new Date()),
+      relay: relayName,
+      action: actionStr,
+      source: "Manual",
+      userOrTrigger: "Manual switch by Riyad Khan",
+      status: "Success",
+    });
+
     try {
       const res = await controlRelayApi({
         deviceId: device.deviceId,
@@ -250,6 +330,52 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Emergency Stop: Turn both relays OFF immediately
+  const emergencyStop = async (): Promise<boolean> => {
+    if (!device?.deviceId) return false;
+
+    // Optimistic update
+    setRelays({
+      relay1: false,
+      relay2: false,
+      relay1State: "OFF",
+      relay2State: "OFF",
+    });
+
+    // Record emergency stop in activity log
+    addActivityLog({
+      timestamp: formatLogTime(new Date()),
+      relay: "All Relays (Pump & Valve)",
+      action: "OFF",
+      source: "Manual",
+      userOrTrigger: "Emergency Stop by Riyad Khan",
+      status: "Safety Cutoff",
+    });
+
+    try {
+      const res = await controlRelayApi({
+        deviceId: device.deviceId,
+        relay1: "OFF",
+        relay2: "OFF",
+      });
+
+      if (res?.success) {
+        setRelays({
+          relay1: false,
+          relay2: false,
+          relay1State: "OFF",
+          relay2State: "OFF",
+        });
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error("Emergency stop failed:", err);
+      refreshData();
+      return false;
+    }
+  };
+
   const clearError = () => setError(null);
 
   return (
@@ -260,15 +386,19 @@ export function DeviceProvider({ children }: { children: React.ReactNode }) {
         isConnecting,
         isLoadingData,
         isSyncing,
+        isManualRefreshing,
         hasSynced,
         error,
         device,
         telemetry,
         statusInfo,
         relays,
+        activityLogs,
+        addActivityLog,
         connectDevice,
         disconnectDevice,
         toggleRelay,
+        emergencyStop,
         refreshData,
         clearError,
       }}

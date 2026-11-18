@@ -13,10 +13,12 @@ export interface ISubmitTelemetryPayload {
 }
 
 export interface IRelayControlPayload {
-  deviceId: string;
-  relay: number; // 1 or 2
-  state: boolean | "ON" | "OFF";
-  source?: "Manual" | "Timer" | "Automation" | "Voice Assistant";
+  deviceId?: string;
+  relay?: number; // 1 or 2
+  state?: boolean | "ON" | "OFF";
+  relay1?: boolean | "ON" | "OFF";
+  relay2?: boolean | "ON" | "OFF";
+  source?: "Manual" | "Timer" | "Automation" | "Voice Assistant" | "AI Assistant";
 }
 
 export interface IDeviceStatus {

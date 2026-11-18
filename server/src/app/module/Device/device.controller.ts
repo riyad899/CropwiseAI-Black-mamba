@@ -58,6 +58,18 @@ const getAuthStatus = catchAsync(async (req: Request, res: Response) => {
   res.status(status.OK).json(result);
 });
 
+const getActivityLogs = catchAsync(async (req: Request, res: Response) => {
+  const deviceId = (req.query.deviceId as string) || "esp32-001";
+  const limit = req.query.limit ? Number(req.query.limit) : 50;
+  const result = await DeviceService.getActivityLogs(deviceId, limit);
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Device activity logs retrieved successfully",
+    data: result,
+  });
+});
+
 const getHealth = catchAsync(async (_req: Request, res: Response) => {
   const result = await DeviceService.getHealth();
   res.status(status.OK).json(result);
@@ -71,5 +83,6 @@ export const DeviceController = {
   controlRelay,
   authenticateDevice,
   getAuthStatus,
+  getActivityLogs,
   getHealth,
 };

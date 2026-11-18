@@ -2,6 +2,19 @@ export interface ICropWiseChatRequest {
   conversationId?: string;
   message: string;
   guestSessionId?: string;
+  userId?: string;
+  deviceId?: string;
+  deviceContext?: {
+    deviceId?: string;
+    isOnline?: boolean;
+    temperature?: number;
+    humidity?: number;
+    soilMoistureRaw?: number;
+    rainSensorRaw?: number;
+    relay1?: "ON" | "OFF";
+    relay2?: "ON" | "OFF";
+    lastSeen?: string;
+  };
   location?: {
     latitude?: number;
     longitude?: number;
@@ -12,7 +25,7 @@ export interface ICropWiseChatRequest {
 }
 
 export interface ICropWiseSource {
-  type: "device_status" | "device_telemetry" | "climate_analysis" | "recommendation" | "why_this_result" | "user_knowledge" | "nasa_data" | "agricultural_kb";
+  type: "device_status" | "device_telemetry" | "climate_analysis" | "recommendation" | "why_this_result" | "user_knowledge" | "nasa_data" | "agricultural_kb" | "crop_rotation";
   title: string;
   timestamp?: string;
   details?: Record<string, unknown> | string;

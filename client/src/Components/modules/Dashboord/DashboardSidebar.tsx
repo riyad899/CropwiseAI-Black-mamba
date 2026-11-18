@@ -27,6 +27,7 @@ import {
   Satellite,
   GitMerge,
   ChartNoAxesCombined,
+  ScanLine,
 } from "lucide-react";
 
 import { useLanguage } from "@/lib/language-context";
@@ -89,12 +90,6 @@ const publicNavItems = [
     icon: HelpCircle,
   },
   {
-    key: "nav_ask_ai",
-    label: "Ask CropWise AI",
-    href: "/dashboard/ask-ai",
-    icon: BotMessageSquare,
-  },
-  {
     key: "nav_learn",
     label: "Learn",
     href: "/dashboard/learn",
@@ -108,6 +103,15 @@ const publicNavItems = [
   },
 ] as const;
 
+const diseaseDetectionNavItems = [
+  {
+    key: "nav_rice_disease",
+    label: "Rice Disease",
+    href: "/dashboard/rice-disease",
+    icon: ScanLine,
+  },
+] as const;
+
 const authenticatedNavItems = [
   {
     key: "nav_device_status",
@@ -115,18 +119,7 @@ const authenticatedNavItems = [
     href: "/dashboard/device-status",
     icon: Activity,
   },
-  {
-    key: "nav_device_overview",
-    label: "Device Overview",
-    href: "/dashboard/device-overview",
-    icon: Layers,
-  },
-  {
-    key: "nav_relay_control",
-    label: "Relay Control",
-    href: "/dashboard/relay-control",
-    icon: Power,
-  },
+
   {
     key: "nav_timers_schedules",
     label: "Timers & Schedules",
@@ -152,10 +145,10 @@ const authenticatedNavItems = [
     icon: History,
   },
   {
-    key: "nav_voice_assistant",
-    label: "Voice Assistant",
-    href: "/dashboard/voice-assistant",
-    icon: Mic,
+    key: "nav_ask_ai",
+    label: "Ask CropWise AI",
+    href: "/dashboard/ask-ai",
+    icon: BotMessageSquare,
   },
   {
     key: "nav_device_settings",
@@ -176,8 +169,8 @@ export default function DashboardSidebar({
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
   const activeNavItems = user && isConnected
-    ? [...publicNavItems, ...authenticatedNavItems]
-    : publicNavItems;
+    ? [...publicNavItems, ...diseaseDetectionNavItems, ...authenticatedNavItems]
+    : [...publicNavItems, ...diseaseDetectionNavItems];
 
   return (
     <>
@@ -239,6 +232,41 @@ export default function DashboardSidebar({
             );
           })}
 
+          {/* Disease Detection Section */}
+          <div className="pt-3 pb-1 px-3">
+            <p className="text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
+              {lang === "BN" ? "রোগ শনাক্তকরণ" : "Disease Detection"}
+            </p>
+          </div>
+          {diseaseDetectionNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href || pathname?.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+                  isActive
+                    ? "bg-primary-50 font-medium text-primary-800"
+                    : "font-normal text-slate-600 hover:bg-primary-50/60"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  <Icon
+                    className={`h-4 w-4 shrink-0 ${
+                      isActive ? "text-primary-700" : "text-slate-400"
+                    }`}
+                  />
+                  <span className="truncate">{t(item.key as any, item.label)}</span>
+                </div>
+                <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800">
+                  AI
+                </span>
+              </Link>
+            );
+          })}
+
           {user && (
             <>
               <div className="pt-3 pb-1 px-3">
@@ -285,29 +313,6 @@ export default function DashboardSidebar({
             </>
           )}
         </nav>
-
-        {/* Desktop Bottom Section */}
-        <div className="relative h-[106px] bg-[#f4f8fb] px-4 py-3">
-          <img
-            src="/Leaf.png"
-            alt=""
-            className="pointer-events-none absolute bottom-1 right-[70px] top-[-100px] h-[200px] w-[140px] object-contain mix-blend-multiply"
-          />
-
-          <div className="relative z-10 ml-12 mt-[-30px] pt-[-50px]">
-            <p className="max-w-[150px] text-[11px] font-medium leading-[1.25] text-[#163b36]">
-              {lang === "BN"
-                ? "কৃষকদের জন্য জলবায়ু-সহনশীল ভবিষ্যৎ"
-                : "A Climate-Resilient Future for Farmers"}
-            </p>
-
-            <p className="mt-2 max-w-[155px] text-[9px] leading-[1.35] text-slate-500">
-              {lang === "BN"
-                ? "পৃথিবীর উপাত্ত। স্থানীয় অগ্রগতি। সমৃদ্ধ খামার।"
-                : "Earth data. Local impact. Stronger farms."}
-            </p>
-          </div>
-        </div>
       </aside>
 
       {/* =====================================================

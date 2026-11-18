@@ -10,6 +10,7 @@ import { envVars } from './config/env.js';
 import cors from "cors";
 import { DeviceRoute } from './app/module/Device/device.route.js';
 import { CropWiseAiRoute } from './app/module/CropWiseAi/cropwise.route.js';
+import { RiceDiseaseRoute } from './app/module/RiceDisease/riceDisease.route.js';
 import { prisma } from './app/lib/prisma.js';
 
 const app:Application = express();
@@ -58,6 +59,7 @@ app.use("/api/device", DeviceRoute);
 app.use("/api/cropwise", CropWiseAiRoute);
 app.use("/api/cropwise-ai", CropWiseAiRoute);
 app.use("/api/proboy", CropWiseAiRoute);
+app.use("/api/rice-disease", RiceDiseaseRoute);
 
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({

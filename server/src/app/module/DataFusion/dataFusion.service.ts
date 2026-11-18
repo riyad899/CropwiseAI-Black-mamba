@@ -1,4 +1,5 @@
 import { prisma } from "../../lib/prisma.js";
+import { GeospatialDb } from "../../lib/geospatialDb.js";
 import type {
   ICalibrationConfig,
   ICalibratedSensorReading,
@@ -9,8 +10,6 @@ import type {
   IDataFusionHistoricalComparison,
   CalibrationProfile,
 } from "./dataFusion.interface.js";
-
-const PYTHON_API_BASE = process.env.PYTHON_API_URL || "http://localhost:8000";
 
 // Pre-indexed district centroid coordinates
 const DISTRICT_CENTROIDS: Record<string, { lat: number; lon: number }> = {
@@ -265,16 +264,13 @@ export class DataFusionService {
     // 3. Fetch satellite historical records for the district
     let satelliteRecords: any[] = [];
     try {
-      const resp = await fetch(
-        `${PYTHON_API_BASE}/api/v1/db/timeseries/${encodeURIComponent(district)}?date_from=${dateFrom}&date_to=${dateTo}`,
-        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) }
-      );
-      if (resp.ok) {
-        const json = await resp.json();
-        satelliteRecords = json?.timeseries || json?.data || [];
-      }
+      satelliteRecords = await GeospatialDb.getDailyRecords({
+        districtName: district,
+        dateFrom,
+        dateTo,
+      });
     } catch {
-      // Fallback empty if satellite API temporarily disconnected
+      // Fallback empty if database query temporarily fails
     }
 
     const latestSatDay = satelliteRecords.length > 0 ? satelliteRecords[satelliteRecords.length - 1] : null;
@@ -469,14 +465,11 @@ export class DataFusionService {
 
     let satelliteRecords: any[] = [];
     try {
-      const resp = await fetch(
-        `${PYTHON_API_BASE}/api/v1/db/timeseries/${encodeURIComponent(district)}?date_from=${dateFrom}&date_to=${dateTo}`,
-        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) }
-      );
-      if (resp.ok) {
-        const json = await resp.json();
-        satelliteRecords = json?.timeseries || json?.data || [];
-      }
+      satelliteRecords = await GeospatialDb.getDailyRecords({
+        districtName: district,
+        dateFrom,
+        dateTo,
+      });
     } catch {
       return [];
     }

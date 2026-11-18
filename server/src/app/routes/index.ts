@@ -14,6 +14,7 @@ import { CropRotationRoute } from "../module/CropRotation/cropRotation.route.js"
 import { FarmIntelligenceRoute } from "../module/FarmIntelligence/farmIntelligence.route.js";
 import { DataFusionRoute } from "../module/DataFusion/dataFusion.route.js";
 import { StatisticalIntelligenceRoute } from "../module/StatisticalIntelligence/statisticalIntelligence.route.js";
+import { RiceDiseaseRoute } from "../module/RiceDisease/riceDisease.route.js";
 
 const router = Router();
 
@@ -34,5 +35,7 @@ router.use("/crop-rotation", CropRotationRoute);
 router.use("/farm-intelligence", FarmIntelligenceRoute);
 router.use("/data-fusion", DataFusionRoute);
 router.use("/statistical-intelligence", StatisticalIntelligenceRoute);
+router.use("/rice-disease", RiceDiseaseRoute);
+router.use("/crop-disease", RiceDiseaseRoute);
 
 export const IndexRoute = router;

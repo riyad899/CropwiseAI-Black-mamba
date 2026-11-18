@@ -53,7 +53,7 @@ module.exports = async function handler(req, res) {
 
     const device = rows[0];
     const seconds = Number(device.seconds_since_seen);
-    const isOnline = seconds <= 420; // 7 minutes threshold (device posts every 5 minutes)
+    const isOnline = seconds <= 900; // 15 minutes threshold for ESP32 agro deep-sleep nodes (posts every 5-10 mins)
 
     return res.status(200).json({
       success: true,

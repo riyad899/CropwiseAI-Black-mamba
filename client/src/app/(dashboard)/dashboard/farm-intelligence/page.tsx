@@ -42,6 +42,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { TransparentNavSlot } from "../../header-context";
+import "mapbox-gl/dist/mapbox-gl.css";
 import {
   getFarmIntelligenceOverview,
   getFarmIntelligenceTimeseries,
@@ -80,8 +81,7 @@ const DISTRICTS_COORDS: Record<string, { lat: number; lon: number; nameBn: strin
 const DISTRICTS = Object.keys(DISTRICTS_COORDS);
 
 const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
-  "";
+  (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").replace(/['"]/g, "").trim();
 
 const RISK_COLORS: Record<string, { bg: string; text: string; dot: string; border: string }> = {
   low: { bg: "bg-emerald-50/90", text: "text-emerald-700", dot: "bg-emerald-500", border: "border-emerald-200" },
@@ -510,6 +510,11 @@ function PrecisionThermalMap({ district, latitude, longitude, overview }: Therma
           pitch: 35,
           bearing: -10,
           attributionControl: false,
+        });
+
+        // Silence unhandled tile/style errors to prevent spamming browser console
+        map.on("error", () => {
+          // Handled silently
         });
 
         map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");

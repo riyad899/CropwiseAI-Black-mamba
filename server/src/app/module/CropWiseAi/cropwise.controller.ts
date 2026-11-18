@@ -6,7 +6,7 @@ import { sendResponse } from "../../shared/sendResponse.js";
 import { CropWiseAiService } from "./cropwise.service.js";
 
 const chat = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || (req.body?.userId as string | undefined);
   const result = await CropWiseAiService.handleChat(req.body, userId);
   sendResponse(res, {
     httpStatus: status.OK,
@@ -17,7 +17,7 @@ const chat = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getConversations = catchAsync(async (req: Request, res: Response) => {
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || (req.query?.userId as string | undefined);
   if (!userId) {
     return sendResponse(res, {
       httpStatus: status.OK,
@@ -37,7 +37,7 @@ const getConversations = catchAsync(async (req: Request, res: Response) => {
 
 const getConversationMessages = catchAsync(async (req: Request, res: Response) => {
   const { conversationId } = req.params;
-  const userId = req.user?.userId;
+  const userId = req.user?.userId || (req.query?.userId as string | undefined);
   const result = await CropWiseAiService.getConversationMessages(conversationId as string, userId);
   if (!result) {
     return sendResponse(res, {
@@ -51,6 +51,18 @@ const getConversationMessages = catchAsync(async (req: Request, res: Response) =
     httpStatus: status.OK,
     success: true,
     message: "Conversation messages fetched successfully",
+    data: result,
+  });
+});
+
+const deleteConversation = catchAsync(async (req: Request, res: Response) => {
+  const { conversationId } = req.params;
+  const userId = req.user?.userId || (req.query?.userId as string | undefined);
+  const result = await CropWiseAiService.deleteConversation(conversationId as string, userId);
+  sendResponse(res, {
+    httpStatus: status.OK,
+    success: true,
+    message: "Conversation deleted successfully",
     data: result,
   });
 });
@@ -97,6 +109,7 @@ export const CropWiseAiController = {
   chat,
   getConversations,
   getConversationMessages,
+  deleteConversation,
   addKnowledge,
   getKnowledge,
 };

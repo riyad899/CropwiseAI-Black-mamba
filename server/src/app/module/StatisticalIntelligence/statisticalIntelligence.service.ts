@@ -1,12 +1,11 @@
 import { StatisticalEngine } from "./statisticalIntelligence.statsEngine.js";
+import { GeospatialDb } from "../../lib/geospatialDb.js";
 import type {
   IStatisticalOverviewResponse,
   ICorrelationMatrixResult,
   ICorrelationCell,
   IMethodComparisonRow,
 } from "./statisticalIntelligence.interface.js";
-
-const PYTHON_API_BASE = process.env.PYTHON_API_URL || "http://localhost:8000";
 
 interface DailyRecord {
   date: string;
@@ -42,31 +41,24 @@ export class StatisticalIntelligenceService {
   }): Promise<IStatisticalOverviewResponse> {
     const { district, dateFrom, dateTo, k } = params;
 
-    // Fetch timeseries and district baselines in parallel
-    const [timeseriesResp, districtsResp] = await Promise.all([
-      fetch(
-        `${PYTHON_API_BASE}/api/v1/db/timeseries/${encodeURIComponent(
-          district
-        )}?date_from=${dateFrom}&date_to=${dateTo}`,
-        { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(15_000) }
-      ).catch(() => null),
-      fetch(`${PYTHON_API_BASE}/api/v1/db/districts`, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(10_000),
-      }).catch(() => null),
+    // Fetch timeseries and district baselines directly from 2-year database
+    const [rawDailyRecords, allDistrictsRaw] = await Promise.all([
+      GeospatialDb.getDailyRecords({ districtName: district, dateFrom, dateTo }),
+      GeospatialDb.getDistricts(),
     ]);
 
-    let rawRecords: DailyRecord[] = [];
-    if (timeseriesResp && timeseriesResp.ok) {
-      const json = await timeseriesResp.json();
-      rawRecords = json.timeseries || json.data || [];
-    }
-
-    let allDistricts: DistrictBaseline[] = [];
-    if (districtsResp && districtsResp.ok) {
-      const json = await districtsResp.json();
-      allDistricts = json.data || json.districts || [];
-    }
+    const rawRecords: DailyRecord[] = rawDailyRecords;
+    const allDistricts: DistrictBaseline[] = allDistrictsRaw.map((d) => ({
+      district: d.name,
+      soil_ph_0_5cm: d.soil_ph_0_5cm,
+      soil_soc_g_kg: d.soil_soc_g_kg,
+      soil_nitrogen_g_kg: d.soil_nitrogen_g_kg,
+      soil_clay_pct_0_5cm: d.soil_clay_pct,
+      soil_sand_pct_0_5cm: d.soil_sand_pct,
+      soil_silt_pct_0_5cm: d.soil_silt_pct,
+      elevation_m: d.elevation_m,
+      canopy_height_m: d.canopy_height_m ?? undefined,
+    }));
 
     // Filter valid daily records
     const cleanRecords = rawRecords.filter(

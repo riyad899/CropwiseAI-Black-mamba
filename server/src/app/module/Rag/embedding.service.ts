@@ -1,4 +1,5 @@
 import { envVars } from "../../../config/env.js";
+import { openRouterKeyPool } from "./openrouter-keys.js";
 
 interface OpenRouterEmbeddingResponse {
   data?: Array<{
@@ -26,54 +27,59 @@ function generateDeterministicVector(text: string, dim: number = 2048): number[]
 }
 
 export class EmbeddingService {
-  private apikey: string;
   private apiUrl: string = "https://openrouter.ai/api/v1";
   private embeddingModel: string;
 
   constructor() {
-    this.apikey = envVars.RAG.OPENROUTER_API_KEY || "";
     this.embeddingModel =
       envVars.RAG.OPENROUTER_EMBEDDING_MODEL ||
       "nvidia/llama-nemotron-embed-vl-1b-v2:free";
-    if (!this.apikey) {
-      console.warn(
-        "⚠️ Warning: OPENROUTER_API_KEY is not set in .env. Using fallback vector generator."
-      );
-    }
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
-    if (!this.apikey) {
+    const keys = openRouterKeyPool.getKeys();
+    if (keys.length === 0) {
       return generateDeterministicVector(text, 2048);
     }
 
-    try {
-      const response = await fetch(`${this.apiUrl}/embeddings`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.apikey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          input: text,
-          model: this.embeddingModel,
-        }),
-        signal: AbortSignal.timeout(2500),
-      });
+    const totalKeys = keys.length;
+    for (let attempt = 0; attempt < totalKeys; attempt++) {
+      const activeKey = openRouterKeyPool.getActiveKey();
+      try {
+        const response = await fetch(`${this.apiUrl}/embeddings`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${activeKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            input: text,
+            model: this.embeddingModel,
+          }),
+          signal: AbortSignal.timeout(3500),
+        });
 
-      if (!response.ok) {
-        return generateDeterministicVector(text, 2048);
+        if (!response.ok) {
+          if (response.status === 429 || response.status === 402 || response.status === 401) {
+            openRouterKeyPool.rotateKey(activeKey, `HTTP ${response.status}`);
+            continue;
+          }
+          return generateDeterministicVector(text, 2048);
+        }
+
+        const data = (await response.json()) as OpenRouterEmbeddingResponse;
+        if (!data.data || data.data.length === 0 || !Array.isArray(data.data[0].embedding)) {
+          return generateDeterministicVector(text, 2048);
+        }
+
+        return data.data[0].embedding;
+      } catch {
+        if (attempt < totalKeys - 1) {
+          openRouterKeyPool.rotateKey(activeKey, "timeout/error");
+        }
       }
-
-      const data = (await response.json()) as OpenRouterEmbeddingResponse;
-      if (!data.data || data.data.length === 0 || !Array.isArray(data.data[0].embedding)) {
-        return generateDeterministicVector(text, 2048);
-      }
-
-      return data.data[0].embedding;
-    } catch {
-      // Return normalized 2048-dim deterministic vector if remote endpoint times out or fails
-      return generateDeterministicVector(text, 2048);
     }
+
+    return generateDeterministicVector(text, 2048);
   }
 }

@@ -27,4 +27,8 @@ router.post("/connect", DeviceController.authenticateDevice);
 router.get("/auth", DeviceController.getAuthStatus);
 router.get("/connect", DeviceController.getAuthStatus);
 
+// API 8: Activity Logs
+router.get("/activity-logs", DeviceController.getActivityLogs);
+router.get("/logs", DeviceController.getActivityLogs);
+
 export const DeviceRoute = router;

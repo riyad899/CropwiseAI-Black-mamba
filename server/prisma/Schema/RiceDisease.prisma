@@ -1,0 +1,24 @@
+model RiceDiseasePrediction {
+  id               String   @id @default(uuid())
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  predictedClass   String
+  displayName      String
+  confidence       Float
+  probabilities    Json
+  imagePath        String?
+  imageUrl         String?
+  originalName     String?
+  fileSizeBytes    Int?
+  processingTimeMs Float
+  modelVersion     String   @default("1.0")
+  recommendations  Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([predictedClass])
+  @@index([createdAt])
+  @@map("rice_disease_prediction")
+}
+

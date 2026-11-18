@@ -222,6 +222,19 @@ export interface ICropWiseChatPayload {
   conversationId?: string;
   message: string;
   guestSessionId?: string;
+  userId?: string;
+  deviceId?: string;
+  deviceContext?: {
+    deviceId?: string;
+    isOnline?: boolean;
+    temperature?: number;
+    humidity?: number;
+    soilMoistureRaw?: number;
+    rainSensorRaw?: number;
+    relay1?: "ON" | "OFF";
+    relay2?: "ON" | "OFF";
+    lastSeen?: string;
+  };
   location?: {
     latitude?: number;
     longitude?: number;
@@ -273,6 +286,91 @@ export async function sendCropWiseChatMessage(payload: ICropWiseChatPayload): Pr
 }
 
 export const sendProboyChatMessage = sendCropWiseChatMessage;
+
+export interface ICropWiseConversationItem {
+  id: string;
+  userId?: string | null;
+  guestSessionId?: string | null;
+  title: string;
+  status?: string;
+  lastMessageAt: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    messages: number;
+  };
+}
+
+export interface ICropWiseConversationDetails {
+  id: string;
+  userId?: string | null;
+  title: string;
+  lastMessageAt: string;
+  createdAt: string;
+  messages: Array<{
+    id: string;
+    conversationId: string;
+    role: "user" | "assistant" | "tool";
+    content: string;
+    sources?: Array<{
+      type: string;
+      title: string;
+      timestamp?: string;
+      details?: any;
+    }>;
+    contextStatus?: any;
+    createdAt: string;
+  }>;
+}
+
+export async function getUserConversationsApi(userId?: string): Promise<{ success: boolean; data: ICropWiseConversationItem[] }> {
+  try {
+    const url = userId ? `/cropwise/conversations?userId=${encodeURIComponent(userId)}` : "/cropwise/conversations";
+    return await httpClient.get<{ success: boolean; data: ICropWiseConversationItem[] }>(url);
+  } catch (err: any) {
+    try {
+      const url = userId ? `/proboy/conversations?userId=${encodeURIComponent(userId)}` : "/proboy/conversations";
+      return await httpClient.get<{ success: boolean; data: ICropWiseConversationItem[] }>(url);
+    } catch {
+      return { success: false, data: [] };
+    }
+  }
+}
+
+export async function getConversationMessagesApi(
+  conversationId: string,
+  userId?: string
+): Promise<{ success: boolean; data: ICropWiseConversationDetails | null }> {
+  try {
+    const url = userId
+      ? `/cropwise/conversations/${conversationId}?userId=${encodeURIComponent(userId)}`
+      : `/cropwise/conversations/${conversationId}`;
+    return await httpClient.get<{ success: boolean; data: ICropWiseConversationDetails | null }>(url);
+  } catch (err: any) {
+    try {
+      const url = userId
+        ? `/proboy/conversations/${conversationId}?userId=${encodeURIComponent(userId)}`
+        : `/proboy/conversations/${conversationId}`;
+      return await httpClient.get<{ success: boolean; data: ICropWiseConversationDetails | null }>(url);
+    } catch {
+      return { success: false, data: null };
+    }
+  }
+}
+
+export async function deleteConversationApi(
+  conversationId: string,
+  userId?: string
+): Promise<{ success: boolean }> {
+  try {
+    const url = userId
+      ? `/cropwise/conversations/${conversationId}?userId=${encodeURIComponent(userId)}`
+      : `/cropwise/conversations/${conversationId}`;
+    return await httpClient.delete<{ success: boolean }>(url);
+  } catch {
+    return { success: false };
+  }
+}
 
 export interface ITwoYearClimateAnalysisRequest {
   district?: string;

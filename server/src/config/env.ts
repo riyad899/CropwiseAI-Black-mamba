@@ -31,6 +31,7 @@ interface EnvConfig {
     ESP32_API_URL: string;
     RAG: {
         OPENROUTER_API_KEY: string;
+        OPENROUTER_API_KEYS: string[];
         OPENROUTER_EMBEDDING_MODEL: string;
         OPENROUTER_LLM_MODEL: string;
     };
@@ -117,6 +118,14 @@ const LoadEnvVarialbes = (): EnvConfig => {
         ESP32_API_URL: process.env.ESP32_API_URL as string,
         RAG: {
             OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || "",
+            OPENROUTER_API_KEYS: (
+                process.env.OPENROUTER_API_KEYS ||
+                process.env.OPENROUTER_API_KEY ||
+                ""
+            )
+                .split(",")
+                .map((k) => k.trim().replace(/^["']|["']$/g, ""))
+                .filter(Boolean),
             OPENROUTER_EMBEDDING_MODEL: process.env.OPENROUTER_EMBEDDING_MODEL || "nvidia/llama-nemotron-embed-vl-1b-v2:free",
             OPENROUTER_LLM_MODEL: process.env.OPENROUTER_LLM_MODEL || "nvidia/nemotron-3-ultra-550b-a55b:free",
         },

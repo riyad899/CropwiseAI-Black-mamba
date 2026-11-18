@@ -7,6 +7,7 @@ const router = Router();
 router.post("/chat", optionalAuth(), CropWiseAiController.chat);
 router.get("/conversations", optionalAuth(), CropWiseAiController.getConversations);
 router.get("/conversations/:conversationId", optionalAuth(), CropWiseAiController.getConversationMessages);
+router.delete("/conversations/:conversationId", optionalAuth(), CropWiseAiController.deleteConversation);
 router.post("/knowledge", optionalAuth(), CropWiseAiController.addKnowledge);
 router.get("/knowledge", optionalAuth(), CropWiseAiController.getKnowledge);
 

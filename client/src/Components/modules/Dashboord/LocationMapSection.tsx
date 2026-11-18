@@ -13,7 +13,8 @@ interface LocationMapSectionProps {
   zoom?: number;
 }
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+const MAPBOX_TOKEN =
+  (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "").replace(/['"]/g, "").trim();
 
 const MAP_STYLES = [
   { id: "satellite-streets-v12", label: "Satellite", icon: "🛰️" },
@@ -51,6 +52,11 @@ export default function LocationMapSection({
 
     // Navigation controls (zoom buttons)
     map.addControl(new mapboxgl.NavigationControl({ showCompass: true }), "top-right");
+
+    // Silence unhandled tile/style errors to prevent spamming browser console
+    map.on("error", () => {
+      // Handled silently
+    });
 
     // Scale bar
     map.addControl(

@@ -554,7 +554,7 @@ app.get("/api/device/status", async (req, res) => {
 
     const device = result.rows[0];
     const seconds = Number(device.seconds_since_seen);
-    const isOnline = seconds <= 420; // 7 minutes threshold
+    const isOnline = seconds <= 900; // 15 minutes threshold for ESP32 agro nodes (posts every 5-10 mins)
 
     return res.status(200).json({
       success: true,

@@ -8,7 +8,10 @@ const getBaseUrl = (): string => {
   ).replace(/\/+$/, "");
 };
 
-const UPSTREAM_IOT_URL = "https://esp32-iot-cloude-connect.vercel.app";
+const UPSTREAM_IOT_URL =
+  process.env.NEXT_PUBLIC_IOT_URL ||
+  process.env.NEXT_PUBLIC_ESP32_API_URL ||
+  "https://esp32-iot-cloude-connect.vercel.app";
 
 export interface IDeviceAuthRequest {
   deviceId?: string;
@@ -179,36 +182,21 @@ export async function checkDeviceAuthApi(deviceId = "esp32-001"): Promise<{
 export async function getLatestTelemetryApi(
   deviceId = "esp32-001"
 ): Promise<{ success: boolean; data: ILatestTelemetry; relay1?: any; relay2?: any }> {
+  // Directly query the Upstream IoT Vercel Cloud endpoint first
   try {
-    const res = await fetch(`${getBaseUrl()}/api/device/data/latest?deviceId=${encodeURIComponent(deviceId)}`, {
-      cache: "no-store",
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return data;
+    const directRes = await fetch(
+      `${UPSTREAM_IOT_URL}/api/device/data/latest?deviceId=${encodeURIComponent(deviceId)}`,
+      { cache: "no-store" }
+    );
+    if (directRes.ok) {
+      return await directRes.json();
     }
   } catch {
-    // fallback
+    // fallback to local API if network fails
   }
 
-  const directRes = await fetch(
-    `${UPSTREAM_IOT_URL}/api/device/data/latest?deviceId=${encodeURIComponent(deviceId)}`,
-    { cache: "no-store" }
-  );
-  if (!directRes.ok) {
-    throw new Error("Failed to fetch latest device telemetry");
-  }
-  return await directRes.json();
-}
-
-/**
- * 4. Get Device Online/Offline & Relay Status (GET /api/device/status?deviceId=...)
- */
-export async function getDeviceStatusApi(
-  deviceId = "esp32-001"
-): Promise<IDeviceStatusResponse> {
   try {
-    const res = await fetch(`${getBaseUrl()}/api/device/status?deviceId=${encodeURIComponent(deviceId)}`, {
+    const res = await fetch(`${getBaseUrl()}/api/device/data/latest?deviceId=${encodeURIComponent(deviceId)}`, {
       cache: "no-store",
     });
     if (res.ok) {
@@ -218,31 +206,163 @@ export async function getDeviceStatusApi(
     // fallback
   }
 
-  const directRes = await fetch(
-    `${UPSTREAM_IOT_URL}/api/device/status?deviceId=${encodeURIComponent(deviceId)}`,
-    { cache: "no-store" }
-  );
-  if (!directRes.ok) {
-    throw new Error("Failed to fetch device status");
+  throw new Error("Failed to fetch latest device telemetry");
+}
+
+/**
+ * 4. Get Real-time Relay States (GET /api/device/relay?deviceId=...)
+ */
+export async function getRelayStateApi(
+  deviceId = "esp32-001"
+): Promise<{ success: boolean; deviceId: string; relay1: "ON" | "OFF"; relay2: "ON" | "OFF" }> {
+  // Query Upstream IoT Cloud Gateway directly first
+  try {
+    const directRes = await fetch(
+      `${UPSTREAM_IOT_URL}/api/device/relay?deviceId=${encodeURIComponent(deviceId)}`,
+      { cache: "no-store" }
+    );
+    if (directRes.ok) {
+      const data = await directRes.json();
+      return {
+        success: Boolean(data?.success),
+        deviceId: data?.deviceId || deviceId,
+        relay1: String(data?.relay1).toUpperCase() === "ON" ? "ON" : "OFF",
+        relay2: String(data?.relay2).toUpperCase() === "ON" ? "ON" : "OFF",
+      };
+    }
+  } catch {
+    // fallback
   }
-  return await directRes.json();
+
+  // Fallback to local backend endpoint
+  try {
+    const res = await fetch(
+      `${getBaseUrl()}/api/device/relay?deviceId=${encodeURIComponent(deviceId)}`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        success: Boolean(data?.success),
+        deviceId: data?.deviceId || deviceId,
+        relay1: (data?.relay1State || (data?.relay1 ? "ON" : "OFF")) as "ON" | "OFF",
+        relay2: (data?.relay2State || (data?.relay2 ? "ON" : "OFF")) as "ON" | "OFF",
+      };
+    }
+  } catch {
+    // fallback
+  }
+
+  return {
+    success: false,
+    deviceId,
+    relay1: "OFF",
+    relay2: "OFF",
+  };
+}
+
+/**
+ * 5. Get Device Online/Offline & Relay Status (GET /api/device/status?deviceId=...)
+ */
+export async function getDeviceStatusApi(
+  deviceId = "esp32-001"
+): Promise<IDeviceStatusResponse> {
+  // Concurrently fetch status and real relay state
+  const [relayState, statusData] = await Promise.all([
+    getRelayStateApi(deviceId).catch(() => null),
+    (async () => {
+      try {
+        const directRes = await fetch(
+          `${UPSTREAM_IOT_URL}/api/device/status?deviceId=${encodeURIComponent(deviceId)}`,
+          { cache: "no-store" }
+        );
+        if (directRes.ok) {
+          return await directRes.json();
+        }
+      } catch {
+        // fallback
+      }
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/device/status?deviceId=${encodeURIComponent(deviceId)}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          return await res.json();
+        }
+      } catch {
+        // fallback
+      }
+      return null;
+    })(),
+  ]);
+
+  const isOnline = statusData?.status === "online" || Boolean(statusData?.active);
+  const r1 = relayState?.relay1 || statusData?.relay1 || "OFF";
+  const r2 = relayState?.relay2 || statusData?.relay2 || "OFF";
+
+  return {
+    success: Boolean(statusData?.success || relayState?.success),
+    deviceId: statusData?.deviceId || deviceId,
+    status: isOnline ? "online" : "offline",
+    active: isOnline,
+    lastSeen: statusData?.lastSeen || null,
+    secondsSinceLastSeen: statusData?.secondsSinceLastSeen ?? null,
+    relay1: r1,
+    relay2: r2,
+  };
+}
+
+export interface IControlRelayParams {
+  deviceId: string;
+  relay?: 1 | 2;
+  state?: boolean | "ON" | "OFF";
+  relay1?: "ON" | "OFF";
+  relay2?: "ON" | "OFF";
+  source?: string;
 }
 
 /**
  * 5. Control Relay (POST /api/device/relay)
  */
-export async function controlRelayApi(params: {
-  deviceId: string;
-  relay: 1 | 2;
-  state: boolean | "ON" | "OFF";
-  source?: string;
-}): Promise<IRelayControlResponse> {
-  const payload = {
-    deviceId: params.deviceId || "esp32-001",
-    relay: params.relay,
-    state: params.state,
-    source: params.source || "Dashboard UI",
-  };
+export async function controlRelayApi(
+  params: IControlRelayParams
+): Promise<IRelayControlResponse> {
+  const deviceId = params.deviceId || "esp32-001";
+  const payload: Record<string, any> = { deviceId };
+
+  if (params.relay1 !== undefined) {
+    payload.relay1 = params.relay1;
+  }
+  if (params.relay2 !== undefined) {
+    payload.relay2 = params.relay2;
+  }
+
+  if (params.relay !== undefined && params.state !== undefined) {
+    const stateStr =
+      params.state === true || String(params.state).toUpperCase() === "ON"
+        ? "ON"
+        : "OFF";
+    if (params.relay === 1) {
+      payload.relay1 = stateStr;
+    } else if (params.relay === 2) {
+      payload.relay2 = stateStr;
+    }
+  }
+
+  // Directly dispatch to Upstream IoT Vercel Cloud endpoint first
+  try {
+    const directRes = await fetch(`${UPSTREAM_IOT_URL}/api/device/relay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (directRes.ok) {
+      const data = await directRes.json();
+      return data?.data || data;
+    }
+  } catch {
+    // fallback to local API if network fails
+  }
 
   try {
     const res = await fetch(`${getBaseUrl()}/api/device/relay`, {
@@ -258,13 +378,5 @@ export async function controlRelayApi(params: {
     // fallback
   }
 
-  const directRes = await fetch(`${UPSTREAM_IOT_URL}/api/device/relay`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!directRes.ok) {
-    throw new Error("Failed to dispatch relay command to device gateway");
-  }
-  return await directRes.json();
+  throw new Error("Failed to dispatch relay command to device gateway");
 }

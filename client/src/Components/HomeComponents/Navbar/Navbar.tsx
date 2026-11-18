@@ -50,7 +50,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-primary-100 bg-[#fbfaf7]/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-[#e3e1d8] bg-[#fbfaf7]/95 backdrop-blur font-sans">
       <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 sm:px-8">
 
         {/* CropWise AI Logo */}
@@ -59,16 +59,16 @@ export default function Navbar() {
           className="flex items-center gap-2.5 text-left"
           aria-label="Go to CropWise AI home"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-white shadow-sm">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f5a42] text-white shadow-sm">
             <Leaf className="h-4.5 w-4.5" />
           </span>
 
           <span>
-            <span className="block text-lg font-semibold leading-none text-slate-900">
+            <span className="block text-lg font-semibold leading-none text-[#12162b]">
               CropWise AI
             </span>
 
-            <span className="mt-1 block text-[11px] leading-none text-slate-400">
+            <span className="mt-1 block text-[11px] leading-none text-[#5d6478]">
               {lang === "BN" ? "নাসার তথ্যে আধুনিক কৃষি ও নিরাপত্তা" : "Farms Today. A Safer Tomorrow."}
             </span>
           </span>
@@ -82,14 +82,14 @@ export default function Navbar() {
               href={l.href}
               className={`relative text-[15px] font-medium transition-colors ${
                 i === 0
-                  ? "text-slate-900"
-                  : "text-slate-500 hover:text-slate-900"
+                  ? "text-[#12162b]"
+                  : "text-[#5d6478] hover:text-[#12162b]"
               }`}
             >
               {lang === "BN" ? l.labelBn : l.labelEn}
 
               {i === 0 && (
-                <span className="absolute -bottom-[26px] left-0 h-[2px] w-full bg-primary-700" />
+                <span className="absolute -bottom-[26px] left-0 h-[2px] w-full bg-[#2f7d5b]" />
               )}
             </Link>
           ))}
@@ -106,13 +106,13 @@ export default function Navbar() {
                 setLangOpen((prev) => !prev);
                 setMenuOpen(false);
               }}
-              className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-[0.98]"
+              className="flex items-center gap-1.5 rounded-full border border-[#e3e1d8] bg-white px-3.5 py-2 text-sm font-medium text-[#12162b] shadow-xs transition hover:bg-slate-50 active:scale-[0.98]"
               aria-label="Switch language"
               aria-expanded={langOpen}
             >
-              <Globe className="h-4 w-4 text-primary-700" />
+              <Globe className="h-4 w-4 text-[#2f7d5b]" />
               <span>{lang === "BN" ? "বাংলা" : "EN"}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              <ChevronDown className="h-3.5 w-3.5 text-[#5d6478]" />
             </button>
 
             {langOpen && (
@@ -261,7 +261,7 @@ export default function Navbar() {
           ) : (
             <Link
               href="/signin"
-              className="rounded-full bg-primary-800 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-900 active:scale-[0.98]"
+              className="rounded-full bg-[#2f7d5b] px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#25664a] active:scale-[0.98]"
             >
               {lang === "BN" ? "লগইন" : "Sign In"}
             </Link>

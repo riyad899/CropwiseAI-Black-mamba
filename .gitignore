@@ -1,4 +1,7 @@
-# Dependencies
+# Python virtual environments
+*venv*/
+*.venv/
+export_venv/
 node_modules/
 */node_modules/
 .pnp

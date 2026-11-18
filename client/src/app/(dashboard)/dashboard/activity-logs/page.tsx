@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { TransparentNavSlot } from "../../header-context";
 import { useLanguage } from "@/lib/language-context";
+import { useDevice } from "@/context/device-context";
 import DeviceConnectGate from "@/Components/modules/Device/DeviceConnectGate";
 
 
@@ -35,90 +36,96 @@ interface ActivityLogItem {
 function ActivityLogsContent() {
   const { lang } = useLanguage();
   const isBn = lang === "BN";
+  const { activityLogs } = useDevice();
 
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const logs: ActivityLogItem[] = [
-    {
-      id: "LOG-1049",
-      timestamp: "Today, 10:45 AM",
-      relay: "Relay 1 (Water Motor)",
-      action: "OFF",
-      source: "Timer",
-      userOrTrigger: isBn ? "৩০ মিনিট কাউন্টডাউন শেষ" : "30-min countdown timer expired",
-      duration: "30m 00s",
-      status: "Success",
-    },
-    {
-      id: "LOG-1048",
-      timestamp: "Today, 10:15 AM",
-      relay: "Relay 1 (Water Motor)",
-      action: "ON",
-      source: "Voice Assistant",
-      userOrTrigger: isBn ? "ভয়েস কমান্ড: 'পাম্প চালু করো'" : "Voice cmd: 'Turn on water pump'",
-      status: "Success",
-    },
-    {
-      id: "LOG-1047",
-      timestamp: "Today, 08:30 AM",
-      relay: "Relay 2 (Solenoid Valve)",
-      action: "OFF",
-      source: "Automation",
-      userOrTrigger: isBn ? "রুল: তাপমাত্রা স্বাভাবিক অবস্থায় ফিরেছে" : "Rule: Temperature dropped below 35°C",
-      duration: "15m 22s",
-      status: "Success",
-    },
-    {
-      id: "LOG-1046",
-      timestamp: "Today, 08:15 AM",
-      relay: "Relay 2 (Solenoid Valve)",
-      action: "ON",
-      source: "Automation",
-      userOrTrigger: isBn ? "রুল: তাপমাত্রা > ৩৮°C" : "Rule: Ambient Temp > 38.0°C trigger",
-      status: "Success",
-    },
-    {
-      id: "LOG-1045",
-      timestamp: "Today, 06:45 AM",
-      relay: "Relay 1 (Water Motor)",
-      action: "OFF",
-      source: "Timer",
-      userOrTrigger: isBn ? "সকালের নিয়মিত শিডিউল শেষ" : "Morning Schedule (06:00 - 06:45 AM)",
-      duration: "45m 00s",
-      status: "Success",
-    },
-    {
-      id: "LOG-1044",
-      timestamp: "Today, 06:00 AM",
-      relay: "Relay 1 (Water Motor)",
-      action: "ON",
-      source: "Timer",
-      userOrTrigger: isBn ? "সকালের শিডিউল ট্রিগার" : "Scheduled auto start",
-      status: "Success",
-    },
-    {
-      id: "LOG-1043",
-      timestamp: "Yesterday, 04:20 PM",
-      relay: "Relay 1 (Water Motor)",
-      action: "OFF",
-      source: "Automation",
-      userOrTrigger: isBn ? "রুল: বৃষ্টি সেন্সরে বৃষ্টি সনাক্ত" : "Rule: Rain sensor detected precipitation",
-      duration: "08m 10s",
-      status: "Safety Cutoff",
-    },
-    {
-      id: "LOG-1042",
-      timestamp: "Yesterday, 02:10 PM",
-      relay: "Relay 1 (Water Motor)",
-      action: "ON",
-      source: "Manual",
-      userOrTrigger: isBn ? "ড্যাশবোর্ড থেকে রিয়াদ খান" : "Manual switch by Riyad Khan",
-      status: "Success",
-    },
-  ];
+  const allLogs: ActivityLogItem[] = React.useMemo(() => {
+    const baseline: ActivityLogItem[] = [
+      {
+        id: "LOG-1049",
+        timestamp: "Today, 10:45 AM",
+        relay: "Relay 1 (Water Motor)",
+        action: "OFF",
+        source: "Timer",
+        userOrTrigger: isBn ? "৩০ মিনিট কাউন্টডাউন শেষ" : "30-min countdown timer expired",
+        duration: "30m 00s",
+        status: "Success",
+      },
+      {
+        id: "LOG-1048",
+        timestamp: "Today, 10:15 AM",
+        relay: "Relay 1 (Water Motor)",
+        action: "ON",
+        source: "Voice Assistant",
+        userOrTrigger: isBn ? "ভয়েস কমান্ড: 'পাম্প চালু করো'" : "Voice cmd: 'Turn on water pump'",
+        status: "Success",
+      },
+      {
+        id: "LOG-1047",
+        timestamp: "Today, 08:30 AM",
+        relay: "Relay 2 (Solenoid Valve)",
+        action: "OFF",
+        source: "Automation",
+        userOrTrigger: isBn ? "রুল: তাপমাত্রা স্বাভাবিক অবস্থায় ফিরেছে" : "Rule: Temperature dropped below 35°C",
+        duration: "15m 22s",
+        status: "Success",
+      },
+      {
+        id: "LOG-1046",
+        timestamp: "Today, 08:15 AM",
+        relay: "Relay 2 (Solenoid Valve)",
+        action: "ON",
+        source: "Automation",
+        userOrTrigger: isBn ? "রুল: তাপমাত্রা > ৩৮°C" : "Rule: Ambient Temp > 38.0°C trigger",
+        status: "Success",
+      },
+      {
+        id: "LOG-1045",
+        timestamp: "Today, 06:45 AM",
+        relay: "Relay 1 (Water Motor)",
+        action: "OFF",
+        source: "Timer",
+        userOrTrigger: isBn ? "সকালের নিয়মিত শিডিউল শেষ" : "Morning Schedule (06:00 - 06:45 AM)",
+        duration: "45m 00s",
+        status: "Success",
+      },
+      {
+        id: "LOG-1044",
+        timestamp: "Today, 06:00 AM",
+        relay: "Relay 1 (Water Motor)",
+        action: "ON",
+        source: "Timer",
+        userOrTrigger: isBn ? "সকালের শিডিউল ট্রিগার" : "Scheduled auto start",
+        status: "Success",
+      },
+      {
+        id: "LOG-1043",
+        timestamp: "Yesterday, 04:20 PM",
+        relay: "Relay 1 (Water Motor)",
+        action: "OFF",
+        source: "Automation",
+        userOrTrigger: isBn ? "রুল: বৃষ্টি সেন্সরে বৃষ্টি সনাক্ত" : "Rule: Rain sensor detected precipitation",
+        duration: "08m 10s",
+        status: "Safety Cutoff",
+      },
+      {
+        id: "LOG-1042",
+        timestamp: "Yesterday, 02:10 PM",
+        relay: "Relay 1 (Water Motor)",
+        action: "ON",
+        source: "Manual",
+        userOrTrigger: isBn ? "ড্যাশবোর্ড থেকে রিয়াদ খান" : "Manual switch by Riyad Khan",
+        status: "Success",
+      },
+    ];
 
-  const filteredLogs = logs.filter((log) => {
+    // Real-time live manual ON/OFF actions appear right at the top
+    return [...activityLogs, ...baseline];
+  }, [activityLogs, isBn]);
+
+  const filteredLogs = allLogs.filter((log) => {
     if (selectedFilter !== "all" && log.source.toLowerCase() !== selectedFilter) {
       return false;
     }
@@ -132,6 +139,31 @@ function ActivityLogsContent() {
     }
     return true;
   });
+
+  const exportToCsv = () => {
+    if (!filteredLogs.length) return;
+    const headers = ["ID", "Timestamp", "Relay", "Action", "Source", "Trigger", "Duration", "Status"];
+    const rows = filteredLogs.map((l) => [
+      l.id,
+      `"${l.timestamp}"`,
+      `"${l.relay}"`,
+      l.action,
+      l.source,
+      `"${l.userOrTrigger}"`,
+      l.duration || "",
+      l.status,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `cropwise_activity_logs_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="pb-24 sm:pb-12">
@@ -221,7 +253,7 @@ function ActivityLogsContent() {
             </div>
 
             <button
-              onClick={() => alert("Logs exported to CSV.")}
+              onClick={exportToCsv}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
             >
               <Download className="h-3.5 w-3.5" />

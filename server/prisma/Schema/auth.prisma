@@ -23,6 +23,7 @@ model User {
   userKnowledge       UserKnowledge[]
   proboyConversations ProboyConversation[]
   deviceActivityLogs  DeviceActivityLog[]
+  riceDiseasePredictions RiceDiseasePrediction[]
 
   @@unique([email])
   @@map("user")

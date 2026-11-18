@@ -11,6 +11,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        sans: ["Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "sans-serif"],
+        serif: ["Newsreader", "Georgia", "Times New Roman", "serif"],
         caveat: ["Caveat", "cursive", "sans-serif"],
       },
       colors: {

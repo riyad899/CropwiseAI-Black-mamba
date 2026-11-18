@@ -199,10 +199,24 @@ export class DeviceService {
       });
       if (resp.ok) {
         const upstream = await resp.json();
-        if (upstream?.success && upstream?.lastSeen) {
-          const upstreamTime = new Date(upstream.lastSeen);
-          if (!lastSeenAt || upstreamTime > new Date(lastSeenAt)) {
-            lastSeenAt = upstreamTime;
+        if (upstream?.success) {
+          if (upstream.status === "online" || upstream.active === true) {
+            return {
+              success: true,
+              deviceId: cleanId,
+              status: "online" as const,
+              active: true,
+              lastSeen: upstream.lastSeen || (lastSeenAt ? new Date(lastSeenAt).toISOString() : new Date().toISOString()),
+              secondsSinceLastSeen: upstream.secondsSinceLastSeen ?? 0,
+              relay1: upstream.relay1 || relay1State,
+              relay2: upstream.relay2 || relay2State,
+            };
+          }
+          if (upstream?.lastSeen) {
+            const upstreamTime = new Date(upstream.lastSeen);
+            if (!lastSeenAt || upstreamTime > new Date(lastSeenAt)) {
+              lastSeenAt = upstreamTime;
+            }
           }
         }
       }
@@ -226,6 +240,23 @@ export class DeviceService {
       relay1: relay1State,
       relay2: relay2State,
     };
+  }
+
+  /**
+   * Get device activity logs
+   */
+  static async getActivityLogs(deviceId = "esp32-001", limit = 50) {
+    const cleanId = deviceId.trim();
+    try {
+      const logs = await prisma.deviceActivityLog.findMany({
+        where: { deviceId: cleanId },
+        orderBy: { timestamp: "desc" },
+        take: limit,
+      });
+      return logs;
+    } catch {
+      return [];
+    }
   }
 
   /**
@@ -282,77 +313,113 @@ export class DeviceService {
    * Execute or request Relay Control change
    */
   static async controlRelay(payload: IRelayControlPayload, userId?: string) {
-    const { deviceId, relay, state, source = "Manual" } = payload;
-    if (!deviceId || !deviceId.trim()) {
-      throw new AppError("deviceId is required", status.BAD_REQUEST);
+    const cleanId = (payload?.deviceId || "esp32-001").trim();
+    const source = payload?.source || "Manual";
+
+    let targetRelay: 1 | 2 = 1;
+    let targetState = "OFF";
+
+    if (payload?.relay1 !== undefined) {
+      targetRelay = 1;
+      targetState =
+        payload.relay1 === true || String(payload.relay1).toUpperCase() === "ON"
+          ? "ON"
+          : "OFF";
+    } else if (payload?.relay2 !== undefined) {
+      targetRelay = 2;
+      targetState =
+        payload.relay2 === true || String(payload.relay2).toUpperCase() === "ON"
+          ? "ON"
+          : "OFF";
+    } else if (payload?.relay !== undefined) {
+      targetRelay = Number(payload.relay) === 2 ? 2 : 1;
+      targetState =
+        payload.state === true || String(payload.state).toUpperCase() === "ON"
+          ? "ON"
+          : "OFF";
     }
-    if (relay !== 1 && relay !== 2) {
-      throw new AppError("relay must be 1 or 2", status.BAD_REQUEST);
-    }
 
-    const cleanId = deviceId.trim();
-    const normalizedState = (state === true || state === "ON") ? "ON" : "OFF";
-    const relayKey = relay === 1 ? "relay1State" : "relay2State";
-    const relayName = relay === 1 ? "Relay 1" : "Relay 2";
+    const relayKey = targetRelay === 1 ? "relay1State" : "relay2State";
+    const relayName = targetRelay === 1 ? "Relay 1" : "Relay 2";
 
-    // Verify ownership if device has an owner
-    const existingDevice = await prisma.device.findUnique({
-      where: { deviceId: cleanId },
-    });
+    let updatedRelay1 = targetRelay === 1 ? targetState : "OFF";
+    let updatedRelay2 = targetRelay === 2 ? targetState : "OFF";
 
-    if (existingDevice?.ownerUserId && userId && existingDevice.ownerUserId !== userId) {
-      throw new AppError("Access denied! You do not have permission to control this device.", status.FORBIDDEN);
-    }
+    // 1. Dispatch to upstream Vercel gateway first to ensure physical hardware triggers
+    const upstreamBody: Record<string, any> = {
+      deviceId: cleanId,
+      [targetRelay === 1 ? "relay1" : "relay2"]: targetState,
+    };
 
-    const updatedDevice = await prisma.device.upsert({
-      where: { deviceId: cleanId },
-      create: {
-        deviceId: cleanId,
-        ownerUserId: userId || null,
-        name: `ESP32 (${cleanId})`,
-        [relayKey]: normalizedState,
-      },
-      update: {
-        [relayKey]: normalizedState,
-      },
-    });
-
-    // Record Activity Log
-    await prisma.deviceActivityLog.create({
-      data: {
-        deviceId: cleanId,
-        userId: userId || null,
-        relay: relayName,
-        action: normalizedState,
-        source,
-        triggerDetails: `${source} switched ${relayName} to ${normalizedState}`,
-        status: "Success",
-      },
-    });
-
-    // Dispatch to upstream gateway so physical ESP32 polling Vercel gets the update
     try {
-      fetch(`${getUpstreamIotUrl()}/api/device/relay`, {
+      const resp = await fetch(`${getUpstreamIotUrl()}/api/device/relay`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify(upstreamBody),
+        signal: AbortSignal.timeout(4500),
+      });
+      if (resp.ok) {
+        const upData = await resp.json().catch(() => null);
+        if (upData) {
+          if (upData.relay1) updatedRelay1 = upData.relay1;
+          if (upData.relay2) updatedRelay2 = upData.relay2;
+        }
+      }
+    } catch (upErr: any) {
+      console.warn("Failed to dispatch relay state to upstream IoT gateway:", upErr?.message || upErr);
+    }
+
+    // 2. Best-effort database updates
+    try {
+      const existingDevice = await prisma.device.findUnique({
+        where: { deviceId: cleanId },
+      }).catch(() => null);
+
+      if (existingDevice) {
+        if (targetRelay === 1) {
+          updatedRelay2 = existingDevice.relay2State || updatedRelay2;
+        } else {
+          updatedRelay1 = existingDevice.relay1State || updatedRelay1;
+        }
+      }
+
+      await prisma.device.upsert({
+        where: { deviceId: cleanId },
+        create: {
           deviceId: cleanId,
-          relay,
-          state: normalizedState === "ON",
-        }),
-      }).catch(() => {});
+          ownerUserId: userId || null,
+          name: `ESP32 (${cleanId})`,
+          [relayKey]: targetState,
+        },
+        update: {
+          [relayKey]: targetState,
+        },
+      }).catch(() => null);
+
+      // Record Activity Log
+      await prisma.deviceActivityLog.create({
+        data: {
+          deviceId: cleanId,
+          userId: userId || null,
+          relay: relayName,
+          action: targetState,
+          source,
+          triggerDetails: `${source} switched ${relayName} to ${targetState}`,
+          status: "Success",
+        },
+      }).catch(() => null);
     } catch {
-      // ignore
+      // Non-fatal if DB is unreachable
     }
 
     return {
       success: true,
       deviceId: cleanId,
-      relay,
-      state: normalizedState,
-      relay1: updatedDevice.relay1State,
-      relay2: updatedDevice.relay2State,
-      updatedAt: updatedDevice.updatedAt,
+      relay: targetRelay,
+      state: targetState,
+      relay1: updatedRelay1,
+      relay2: updatedRelay2,
+      updatedAt: new Date().toISOString(),
     };
   }
 

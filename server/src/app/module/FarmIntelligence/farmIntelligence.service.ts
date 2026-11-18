@@ -1,26 +1,15 @@
 // ─── Farm Intelligence Service ──────────────────────────────────────
-// Proxies requests to the Python geospatial API (port 8000)
-// and computes risk indicators from the returned environmental data.
+// Directly queries the 2-year continuous environmental & satellite database
+// (Neon PostgreSQL) and computes risk indicators from the returned data.
 
 import type {
     IDistrictSummary,
     IFarmIntelligenceOverview,
     ITimeseriesResponse,
     IDistrictBaseline,
+    IDailyRecord,
 } from "./farmIntelligence.interface.js";
-
-const PYTHON_API_BASE = process.env.PYTHON_API_URL || "http://localhost:8000";
-
-async function fetchJson<T>(url: string): Promise<T> {
-    const response = await fetch(url, {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) {
-        throw new Error(`Python API error ${response.status}: ${response.statusText} for ${url}`);
-    }
-    return response.json() as Promise<T>;
-}
+import { GeospatialDb } from "../../lib/geospatialDb.js";
 
 // ─── Risk scoring helpers ───────────────────────────────────────────
 
@@ -121,14 +110,10 @@ function computeTempTrend(data: Array<{ surface_temperature_celsius: number }>):
 
 // ─── Public Service Methods ──────────────────────────────────────────
 
-async function getOverview(district: string, dateFrom: string, dateTo: string): Promise<IFarmIntelligenceOverview> {
-    const [summary, timeseries] = await Promise.all([
-        fetchJson<IDistrictSummary>(
-            `${PYTHON_API_BASE}/api/v1/db/summary/${encodeURIComponent(district)}?date_from=${dateFrom}&date_to=${dateTo}`
-        ),
-        fetchJson<ITimeseriesResponse>(
-            `${PYTHON_API_BASE}/api/v1/db/timeseries/${encodeURIComponent(district)}?date_from=${dateFrom}&date_to=${dateTo}`
-        ),
+async function getOverview(district: string, dateFrom = "2024-01-01", dateTo = "2025-12-31"): Promise<IFarmIntelligenceOverview> {
+    const [summary, records] = await Promise.all([
+        GeospatialDb.getDistrictSummary(district, dateFrom, dateTo),
+        GeospatialDb.getDailyRecords({ districtName: district, dateFrom, dateTo }),
     ]);
 
     const a = summary.two_year_analytics;
@@ -143,10 +128,8 @@ async function getOverview(district: string, dateFrom: string, dateTo: string): 
     const scores = [droughtRisk, waterStress, heatStress, vegetationHealth, soilHealth].map(riskToNumber);
     const overallScore = Math.round(scores.reduce((s, v) => s + v, 0) / scores.length);
 
-    const records = timeseries.timeseries || timeseries.data || [];
-
     return {
-        summary,
+        summary: summary as unknown as IDistrictSummary,
         riskIndicators: {
             droughtRisk,
             waterStress,
@@ -163,20 +146,33 @@ async function getOverview(district: string, dateFrom: string, dateTo: string): 
     };
 }
 
-async function getTimeseries(district: string, dateFrom: string, dateTo: string): Promise<ITimeseriesResponse> {
-    const raw = await fetchJson<any>(
-        `${PYTHON_API_BASE}/api/v1/db/timeseries/${encodeURIComponent(district)}?date_from=${dateFrom}&date_to=${dateTo}`
-    );
-    const records = raw.timeseries || raw.data || [];
+async function getTimeseries(district: string, dateFrom = "2024-01-01", dateTo = "2025-12-31"): Promise<ITimeseriesResponse> {
+    const records = await GeospatialDb.getDailyRecords({
+        districtName: district,
+        dateFrom,
+        dateTo,
+    });
+
     return {
-        ...raw,
-        timeseries: records,
-        data: records,
+        source: "Neon PostgreSQL - 2-Year Continuous Dataset (2024–2025)",
+        district,
+        date_from: dateFrom,
+        date_to: dateTo,
+        period: { date_from: dateFrom, date_to: dateTo },
+        total_days: records.length,
+        total_records: records.length,
+        timeseries: records as unknown as IDailyRecord[],
+        data: records as unknown as IDailyRecord[],
     };
 }
 
 async function getDistricts(): Promise<{ source: string; total_districts: number; data: IDistrictBaseline[] }> {
-    return fetchJson(`${PYTHON_API_BASE}/api/v1/db/districts`);
+    const districts = await GeospatialDb.getDistricts();
+    return {
+        source: "Neon PostgreSQL - Bangladesh Geospatial Intelligence Suite",
+        total_districts: districts.length,
+        data: districts as unknown as IDistrictBaseline[],
+    };
 }
 
 async function getDailyData(params: {
@@ -186,26 +182,39 @@ async function getDailyData(params: {
     limit?: number;
     offset?: number;
 }): Promise<unknown> {
-    const qs = new URLSearchParams();
-    if (params.district) qs.set("district", params.district);
-    if (params.dateFrom) qs.set("date_from", params.dateFrom);
-    if (params.dateTo) qs.set("date_to", params.dateTo);
-    if (params.limit) qs.set("limit", String(params.limit));
-    if (params.offset) qs.set("offset", String(params.offset));
-
-    return fetchJson(`${PYTHON_API_BASE}/api/v1/db/daily?${qs.toString()}`);
+    return GeospatialDb.getDailyDataPaginated(params);
 }
 
 async function getSatelliteData(params: {
     lat: number;
     lon: number;
-    dateFrom: string;
-    dateTo: string;
-    dataset: string;
+    dateFrom?: string;
+    dateTo?: string;
+    dataset?: string;
 }): Promise<unknown> {
-    const endpoint = params.dataset === "all" ? "all" : params.dataset;
-    const qs = `lat=${params.lat}&lon=${params.lon}&date_from=${params.dateFrom}&date_to=${params.dateTo}`;
-    return fetchJson(`${PYTHON_API_BASE}/api/v1/datasets/${endpoint}?${qs}`);
+    const { lat, lon, dateFrom = "2024-01-01", dateTo = "2025-12-31", dataset = "all" } = params;
+
+    const nearest = await GeospatialDb.getNearestDistrict(lat, lon);
+    if (!nearest) {
+        throw new Error("No district found near the provided coordinates");
+    }
+
+    const records = await GeospatialDb.getDailyRecords({
+        districtName: nearest.name,
+        dateFrom,
+        dateTo,
+    });
+
+    return {
+        source: "Neon PostgreSQL - 2-Year Continuous Dataset",
+        dataset,
+        matched_district: nearest.name,
+        district_coordinates: { latitude: nearest.latitude, longitude: nearest.longitude },
+        query_coordinates: { latitude: lat, longitude: lon },
+        baseline: nearest,
+        total_records: records.length,
+        records,
+    };
 }
 
 export const FarmIntelligenceService = {

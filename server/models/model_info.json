@@ -1,0 +1,60 @@
+{
+  "model_name": "EfficientNet-B0 Rice Leaf Disease Classifier",
+  "architecture": "efficientnet_b0",
+  "num_classes": 10,
+  "classes": [
+    "bacterial_leaf_blight",
+    "bacterial_leaf_streak",
+    "bacterial_panicle_blight",
+    "blast",
+    "brown_spot",
+    "dead_heart",
+    "downy_mildew",
+    "hispa",
+    "normal",
+    "tungro"
+  ],
+  "class_to_idx": {
+    "bacterial_leaf_blight": 0,
+    "bacterial_leaf_streak": 1,
+    "bacterial_panicle_blight": 2,
+    "blast": 3,
+    "brown_spot": 4,
+    "dead_heart": 5,
+    "downy_mildew": 6,
+    "hispa": 7,
+    "normal": 8,
+    "tungro": 9
+  },
+  "idx_to_class": {
+    "0": "bacterial_leaf_blight",
+    "1": "bacterial_leaf_streak",
+    "2": "bacterial_panicle_blight",
+    "3": "blast",
+    "4": "brown_spot",
+    "5": "dead_heart",
+    "6": "downy_mildew",
+    "7": "hispa",
+    "8": "normal",
+    "9": "tungro"
+  },
+  "image_size": 224,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "metrics": {
+    "accuracy": 0.9505283381364072,
+    "precision": 0.937777384998655,
+    "recall": 0.9549616963017881,
+    "f1_score": 0.9456072935473261,
+    "best_validation_macro_f1": 0.9456072935473261
+  },
+  "onnx_model_file": "rice_leaf_efficientnet_b0.onnx"
+}

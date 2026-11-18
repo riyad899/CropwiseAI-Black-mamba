@@ -41,11 +41,23 @@ function RealDeviceStatusContent() {
     statusInfo,
     relays,
     toggleRelay,
+    emergencyStop,
     refreshData,
     isLoadingData,
     isSyncing,
     hasSynced,
   } = useDevice();
+
+  const [isEmergencyStopping, setIsEmergencyStopping] = React.useState(false);
+
+  const handleEmergencyStop = async () => {
+    setIsEmergencyStopping(true);
+    try {
+      await emergencyStop();
+    } finally {
+      setIsEmergencyStopping(false);
+    }
+  };
 
   const temp = telemetry?.temperature ?? 28.5;
   const humidity = telemetry?.humidity ?? 72;
@@ -98,9 +110,9 @@ function RealDeviceStatusContent() {
                 : "Real-time telemetry, relay execution status, and live node health from your connected ESP32 unit."}
             </p>
 
-            <div className="mt-5 flex items-center gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-3">
               <button
-                onClick={() => refreshData()}
+                onClick={() => refreshData(true)}
                 disabled={isSyncing}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-emerald-600/30 transition hover:bg-emerald-700 disabled:opacity-85"
               >
@@ -109,45 +121,46 @@ function RealDeviceStatusContent() {
                   {isSyncing
                     ? isBn
                       ? "স্ট্যাটাস সিঙ্ক হচ্ছে..."
-                      : "Status Syncing..."
+                      : "Syncing..."
                     : isBn
                     ? "ডাটা রিফ্রেশ করুন"
                     : "Refresh Telemetry"}
                 </span>
               </button>
 
-              {isSyncing ? (
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-300 bg-sky-50/95 px-3 py-1.5 text-xs font-semibold text-sky-800 shadow-sm backdrop-blur-sm">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-500"></span>
-                  </span>
-                  <span>{isBn ? "স্ট্যাটাস সিঙ্ক হচ্ছে..." : "Status Syncing..."}</span>
-                </div>
-              ) : (
-                <div
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm shadow-sm ${
-                    isOnline
-                      ? "border-emerald-300 bg-emerald-50/90 text-emerald-800"
-                      : "border-amber-300 bg-white/90 text-amber-800"
+              <button
+                type="button"
+                onClick={handleEmergencyStop}
+                disabled={isEmergencyStopping}
+                className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition hover:bg-rose-700 active:scale-95 disabled:opacity-60"
+                title={isBn ? "সকল রিলে ও পাম্প তাৎক্ষণিক বন্ধ করুন" : "Shut down all relays immediately"}
+              >
+                <Power className={`h-3.5 w-3.5 ${isEmergencyStopping ? "animate-spin" : ""}`} />
+                <span>{isEmergencyStopping ? (isBn ? "বন্ধ হচ্ছে..." : "Stopping...") : (isBn ? "জরুরি শাটডাউন" : "Emergency Stop")}</span>
+              </button>
+
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm shadow-sm ${
+                  isOnline
+                    ? "border-emerald-300 bg-emerald-50/90 text-emerald-800"
+                    : "border-amber-300 bg-white/90 text-amber-800"
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isOnline ? "bg-emerald-500 animate-pulse" : "bg-amber-500"
                   }`}
-                >
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      isOnline ? "bg-emerald-500 animate-ping" : "bg-amber-500"
-                    }`}
-                  />
-                  <span>
-                    {isOnline
-                      ? isBn
-                        ? "ডিভাইস সচল (Online)"
-                        : "ESP32 Online"
-                      : isBn
-                      ? "অফলাইন"
-                      : "ESP32 Offline"}
-                  </span>
-                </div>
-              )}
+                />
+                <span>
+                  {isOnline
+                    ? isBn
+                      ? "ডিভাইস সচল (ESP32 Online)"
+                      : "ESP32 Online"
+                    : isBn
+                    ? "অফলাইন"
+                    : "ESP32 Offline"}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -176,39 +189,21 @@ function RealDeviceStatusContent() {
               </span>
               <Radio
                 className={`h-4 w-4 ${
-                  isSyncing
-                    ? "text-sky-500 animate-pulse"
-                    : isOnline
-                    ? "text-sky-600"
-                    : "text-amber-500"
+                  isOnline ? "text-emerald-600" : "text-amber-500"
                 }`}
               />
             </div>
-            {isSyncing ? (
-              <>
-                <p className="mt-2 text-lg font-bold text-sky-700 flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-sky-600" />
-                  <span>{isBn ? "স্ট্যাটাস সিঙ্ক হচ্ছে..." : "Status Syncing..."}</span>
-                </p>
-                <p className="text-[11px] text-sky-600">
-                  {isBn ? "ডিভাইস হার্টবিট যাচাই হচ্ছে..." : "Syncing live telemetry..."}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-2 text-lg font-bold text-slate-800 flex items-center gap-2">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      isOnline ? "bg-emerald-500" : "bg-amber-500"
-                    }`}
-                  />
-                  <span>{isOnline ? "Online" : "Offline"}</span>
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {isBn ? `শেষ পিং: ${lastPingStr}` : `Last ping: ${lastPingStr}`}
-                </p>
-              </>
-            )}
+            <p className="mt-2 text-lg font-bold text-slate-800 flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  isOnline ? "bg-emerald-500" : "bg-amber-500"
+                }`}
+              />
+              <span>{isOnline ? "Online" : "Offline"}</span>
+            </p>
+            <p className="text-[11px] text-slate-500">
+              {isBn ? `শেষ পিং: ${lastPingStr}` : `Last ping: ${lastPingStr}`}
+            </p>
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -258,6 +253,48 @@ function RealDeviceStatusContent() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Emergency Stop & Relay Master Control Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50/90 via-red-50/50 to-white p-4 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 border border-rose-300">
+              <AlertTriangle className="h-5 w-5 text-rose-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span>{isBn ? "জরুরি রিলে ও হার্ডওয়্যার শাটডাউন" : "Emergency Actuator Control"}</span>
+                {(relays.relay1 || relays.relay2) && (
+                  <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">
+                    {isBn ? "অ্যাকচুয়েটর চলছে" : "Actuators Running"}
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-slate-500">
+                {isBn
+                  ? "যেকোনো জরুরি অবস্থায় পানির মোটর (Pump) ও সলিনয়েড ভাল্ব (Valve) তাৎক্ষণিক বন্ধ করুন।"
+                  : "Instantly force both irrigation pump and valve relays to OFF in one click."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleEmergencyStop}
+            disabled={isEmergencyStopping || (!relays.relay1 && !relays.relay2)}
+            className="flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition hover:bg-rose-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Power className="h-4 w-4" />
+            <span>
+              {isEmergencyStopping
+                ? isBn
+                  ? "বন্ধ হচ্ছে..."
+                  : "Stopping..."
+                : isBn
+                ? "জরুরি শাটডাউন (সব বন্ধ)"
+                : "Emergency Stop (All OFF)"}
+            </span>
+          </button>
         </div>
 
         {/* Live Real Sensor Readings Grid */}
